@@ -48,9 +48,12 @@
           ul.innerHTML = '';
           cycles.forEach(c => {
             const li = document.createElement('li');
-            li.textContent = `${c[1]} - V1:${c[2]}s, V2:${c[3]}s, V3:${c[4]}s`;
+            li.textContent = `${c.heure} - V1: ${c.vanne1_duration}s, V2: ${c.vanne2_duration}s, V3: ${c.vanne3_duration}s`;
             ul.appendChild(li);
           });
+        })
+        .catch(err => {
+          console.error('Erreur lors du chargement des cycles :', err);
         });
     }
 
