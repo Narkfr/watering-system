@@ -99,12 +99,6 @@ def open_valve(index, duration_sec):
     VALVES[index].value(1)
     PUMP.value(1)
 
-def activate_pump(state):
-    PUMP.value(1 if state else 0)
-
-def activate_valve(index, state):
-    VALVES[index].value(1 if state else 0)
-
 # --- SCHEDULER
 def scheduler_loop():
     global CYCLE_RUNNING
@@ -133,7 +127,6 @@ def scheduler_loop():
 
         time.sleep(30)
 
-
 def run_cycle(cycle):
     global VALVES_STATE, CYCLE_RUNNING
     CYCLE_RUNNING = True
@@ -144,11 +137,7 @@ def run_cycle(cycle):
     for i in range(3):
         print(f"Ouverture vanne {i+1} pendant {v_durations[i]}s")
         VALVES_STATE["current"] = i + 1
-        activate_valve(i, True)
-        activate_pump(True)
-        time.sleep(v_durations[i])
-        activate_valve(i, False)
-        activate_pump(False)
+        open_valve(i, v_durations[i])
         time.sleep(1)
 
     VALVES_STATE["current"] = None
@@ -178,6 +167,7 @@ def handle_request(client):
     lines = request.split("\r\n")
     first_line = lines[0]
     method, path, _ = first_line.split(" ")
+    cycles = read_cycles()
 
     print(f"[HTTP] {method} {path}")
 
@@ -192,13 +182,11 @@ def handle_request(client):
         send_json(client, {"heure": h, "vanne": VALVES_STATE["current"]})
 
     elif path == "/api/cycles" and method == "GET":
-        cycles = read_cycles()
         send_json(client, cycles)
 
     elif path == "/api/add_cycle" and method == "POST":
         body = request.split("\r\n\r\n")[1]
         data = json.loads(body)
-        cycles = read_cycles()
         new_cycle = {
             "id": len(cycles) + 1,
             "heure": data["heure"],
@@ -210,6 +198,22 @@ def handle_request(client):
         cycles.append(new_cycle)
         save_cycles(cycles)
         send_json(client, {"status": "ok"})
+
+    elif re.match("^/api/cycle/\\d+/pause$", path) and method == "POST":
+        index = int(path.split("/")[-2])
+        if 0 <= index < len(cycles):
+            disable_cycle(index)
+            send_json(client, {"status": "cycle mis en pause"})
+        else:
+            send_json(client, {"error": "index invalide"})
+
+    elif re.match("^/api/cycle/\\d+/delete$", path) and method == "POST":
+        index = int(path.split("/")[-2])
+        if 0 <= index < len(cycles):
+            delete_cycle(index)
+            send_json(client, {"status": "cycle supprimé"})
+        else:
+            send_json(client, {"error": "index invalide"})
 
     elif re.match("^/api/valve/\\d$", path) and method == "POST":
         index = int(path.split("/")[-1])
