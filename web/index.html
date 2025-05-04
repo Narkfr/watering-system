@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Arrosage</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    label { display: block; margin-top: 0.5em; }
+  </style>
+</head>
+<body>
+  <h1>État</h1>
+  <p>Heure actuelle : <span id="heure">--:--</span></p>
+  <p>Vanne ouverte : <span id="vanne">aucune</span></p>
+
+  <h2>Ouvrir une vanne</h2>
+  <button onclick="openValve(0)">Vanne 1</button>
+  <button onclick="openValve(1)">Vanne 2</button>
+  <button onclick="openValve(2)">Vanne 3</button>
+
+  <h2>Ajouter un cycle</h2>
+  <form onsubmit="addCycle(event)">
+    <label>Heure (HH:MM): <input id="cycle-heure" required></label>
+    <label>Durée vanne 1 (sec): <input id="v1" type="number" value="600" required></label>
+    <label>Durée vanne 2 (sec): <input id="v2" type="number" value="600" required></label>
+    <label>Durée vanne 3 (sec): <input id="v3" type="number" value="600" required></label>
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <h2>Cycles programmés</h2>
+  <ul id="cycle-list"></ul>
+
+  <script>
+    function refreshState() {
+      fetch('/api/state')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('heure').textContent = data.heure;
+          document.getElementById('vanne').textContent = data.vanne || "aucune";
+        });
+    }
+
+    function loadCycles() {
+      fetch('/api/cycles')
+        .then(res => res.json())
+        .then(cycles => {
+          const ul = document.getElementById('cycle-list');
+          ul.innerHTML = '';
+          cycles.forEach(c => {
+            const li = document.createElement('li');
+            li.textContent = `${c[1]} - V1:${c[2]}s, V2:${c[3]}s, V3:${c[4]}s`;
+            ul.appendChild(li);
+          });
+        });
+    }
+
+    function addCycle(e) {
+      e.preventDefault();
+      const data = {
+        heure: document.getElementById('cycle-heure').value,
+        v1: parseInt(document.getElementById('v1').value),
+        v2: parseInt(document.getElementById('v2').value),
+        v3: parseInt(document.getElementById('v3').value)
+      };
+      fetch('/api/add_cycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(() => {
+        loadCycles();
+      });
+    }
+
+    function openValve(id) {
+      fetch(`/api/valve/${id}`, { method: 'POST' });
+    }
+
+    setInterval(refreshState, 5000);
+    refreshState();
+    loadCycles();
+  </script>
+</body>
+</html>
